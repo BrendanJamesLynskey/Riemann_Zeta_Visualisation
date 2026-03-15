@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riemann Zeta Function Visualisation</title>
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<style>
+:root {
+  --bg: #0f0f13;
+  --surface: #1a1a24;
+  --border: #2a2a3a;
+  --text: #e0e0e8;
+  --muted: #8888a0;
+  --accent: #6c8cff;
+  --accent2: #ff6c8c;
+  --accent3: #6cffc8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(108,140,255,0.08) 0%, transparent 100%);
+}
+
+header h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.3rem;
+}
+
+header p {
+  color: var(--muted);
+  font-size: 1rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.container {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+}
+
+.card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.main-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.canvas-wrap {
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#domainCanvas {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+}
+
+.canvas-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(15,15,19,0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  pointer-events: none;
+  line-height: 1.6;
+  min-width: 260px;
+}
+
+.canvas-overlay .label { color: var(--muted); }
+.canvas-overlay .value { color: var(--text); font-family: 'Consolas', 'Courier New', monospace; }
+.canvas-overlay .accent { color: var(--accent); }
+.canvas-overlay .accent2 { color: var(--accent2); }
+.canvas-overlay .accent3 { color: var(--accent3); }
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.control-group {
+  margin-bottom: 0.8rem;
+}
+
+.control-group label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.control-group input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.control-group .range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.preset-btn {
+  background: rgba(108,140,255,0.1);
+  border: 1px solid rgba(108,140,255,0.25);
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.preset-btn:hover {
+  background: rgba(108,140,255,0.2);
+  border-color: var(--accent);
+}
+
+.preset-btn.active {
+  background: rgba(108,140,255,0.25);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.legend-canvas-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+#legendCanvas {
+  border-radius: 50%;
+}
+
+.zero-list {
+  font-size: 0.78rem;
+  line-height: 1.8;
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--muted);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.zero-list span { color: var(--accent3); }
+
+#zetaPlot {
+  width: 100%;
+  height: 260px;
+}
+
+.render-status {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 0.3rem;
+}
+
+.axes-labels {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+@media (max-width: 1000px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Riemann Zeta Function</h1>
+  <p>Interactive domain colouring of &zeta;(s) &mdash; explore the critical strip, non-trivial zeros, and functional equation</p>
+</header>
+
+<div class="container">
+  <div class="main-area">
+    <div class="card">
+      <h2>Domain Colouring of &zeta;(s)</h2>
+      <div class="canvas-wrap">
+        <canvas id="domainCanvas" width="900" height="700"></canvas>
+        <div class="canvas-overlay" id="infoOverlay">
+          <div><span class="label">Position: </span><span class="value" id="infoPos">s = 0 + 0i</span></div>
+          <div><span class="label">&zeta;(s) = </span><span class="value" id="infoZeta">-</span></div>
+          <div><span class="label">|&zeta;(s)| = </span><span class="value accent" id="infoAbs">-</span></div>
+          <div><span class="label">arg(&zeta;(s)) = </span><span class="value accent2" id="infoArg">-</span></div>
+          <div><span class="label">Nearest zero: </span><span class="value accent3" id="infoZero">-</span></div>
+        </div>
+        <div class="axes-labels">Re(s) &rarr; , Im(s) &uarr;</div>
+      </div>
+      <div class="render-status" id="renderStatus">Ready</div>
+    </div>
+
+    <div class="card">
+      <h2>|&zeta;(&frac12; + it)| along the Critical Line</h2>
+      <div id="zetaPlot"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="card">
+      <h2>Preset Views</h2>
+      <div class="preset-grid">
+        <button class="preset-btn active" data-preset="overview">Full Overview</button>
+        <button class="preset-btn" data-preset="strip">Critical Strip</button>
+        <button class="preset-btn" data-preset="zeros">First Zeros</button>
+        <button class="preset-btn" data-preset="trivial">Trivial Zeros</button>
+        <button class="preset-btn" data-preset="pole">Pole at s=1</button>
+        <button class="preset-btn" data-preset="gram">Gram Points</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Controls</h2>
+      <div class="control-group">
+        <label>Resolution: <span id="resLabel">150</span>px</label>
+        <input type="range" id="resSlider" min="60" max="500" value="150" step="10">
+        <div class="range-labels"><span>Fast</span><span>Quality</span></div>
+      </div>
+      <div class="control-group">
+        <label>Re(s) min: <span id="reMinLabel">-5</span></label>
+        <input type="range" id="reMinSlider" min="-20" max="4" value="-5" step="0.5">
+      </div>
+      <div class="control-group">
+        <label>Re(s) max: <span id="reMaxLabel">5</span></label>
+        <input type="range" id="reMaxSlider" min="-3" max="20" value="5" step="0.5">
+      </div>
+      <div class="control-group">
+        <label>Im(s) min: <span id="imMinLabel">-30</span></label>
+        <input type="range" id="imMinSlider" min="-60" max="0" value="-30" step="1">
+      </div>
+      <div class="control-group">
+        <label>Im(s) max: <span id="imMaxLabel">30</span></label>
+        <input type="range" id="imMaxSlider" min="0" max="60" value="30" step="1">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Colour Legend (arg)</h2>
+      <div class="legend-canvas-wrap">
+        <canvas id="legendCanvas" width="140" height="140"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Known Non-Trivial Zeros</h2>
+      <div class="zero-list" id="zeroList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Complex number arithmetic
+// ============================================================
+function cadd(a, b) { return [a[0]+b[0], a[1]+b[1]]; }
+function csub(a, b) { return [a[0]-b[0], a[1]-b[1]]; }
+function cmul(a, b) { return [a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]]; }
+function cdiv(a, b) {
+  const d = b[0]*b[0]+b[1]*b[1];
+  return [(a[0]*b[0]+a[1]*b[1])/d, (a[1]*b[0]-a[0]*b[1])/d];
+}
+function cabs(z) { return Math.sqrt(z[0]*z[0]+z[1]*z[1]); }
+function carg(z) { return Math.atan2(z[1], z[0]); }
+function cexp(z) { const r = Math.exp(z[0]); return [r*Math.cos(z[1]), r*Math.sin(z[1])]; }
+function clog(z) { return [Math.log(cabs(z)), carg(z)]; }
+function cpow(base, exp) { // base^exp = exp(exp * log(base))
+  if (base[0] === 0 && base[1] === 0) return [0, 0];
+  return cexp(cmul(exp, clog(base)));
+}
+function csin(z) {
+  return [(Math.sin(z[0])*(Math.exp(z[1])+Math.exp(-z[1]))/2),
+          (Math.cos(z[0])*(Math.exp(z[1])-Math.exp(-z[1]))/2)];
+}
+function creal(z) { return z[0]; }
+function cimag(z) { return z[1]; }
+function conj(z) { return [z[0], -z[1]]; }
+
+// ============================================================
+// Lanczos approximation for complex Gamma function
+// ============================================================
+function cgamma(z) {
+  // Reflection formula for Re(z) < 0.5
+  if (z[0] < 0.5) {
+    // Gamma(z) = pi / (sin(pi*z) * Gamma(1-z))
+    const piz = cmul([Math.PI, 0], z);
+    const sinpiz = csin(piz);
+    const g1mz = cgamma(csub([1, 0], z));
+    return cdiv([Math.PI, 0], cmul(sinpiz, g1mz));
+  }
+
+  // Lanczos coefficients (g=7, n=9)
+  const g = 7;
+  const c = [
+    0.99999999999980993,
+    676.5203681218851,
+    -1259.1392167224028,
+    771.32342877765313,
+    -176.61502916214059,
+    12.507343278686905,
+    -0.13857109526572012,
+    9.9843695780195716e-6,
+    1.5056327351493116e-7
+  ];
+
+  const zm1 = [z[0] - 1, z[1]];
+  let x = [c[0], 0];
+  for (let i = 1; i < 9; i++) {
+    x = cadd(x, cdiv([c[i], 0], cadd(zm1, [i, 0])));
+  }
+
+  const t = cadd(zm1, [g + 0.5, 0]);
+  const sqrt2pi = [Math.sqrt(2 * Math.PI), 0];
+
+  // Gamma(z) = sqrt(2pi) * t^(z-0.5) * exp(-t) * x
+  const tpow = cpow(t, csub(zm1, [-0.5, 0]));
+  const expt = cexp(cmul([-1, 0], t));
+  return cmul(sqrt2pi, cmul(tpow, cmul(expt, x)));
+}
+
+// ============================================================
+// Riemann Zeta function
+// ============================================================
+// Eta function via Euler-Knopp acceleration (converges for all s != 1)
+// Uses the Borwein method with binomial coefficients
+const NETA = 40; // number of terms
+let etaCoeffs = null;
+
+function computeEtaCoeffs(n) {
+  // Precompute d_k coefficients for Borwein's method
+  // d_k = n * sum_{i=0}^{k} (-1)^i * C(n,i)  ... actually the standard approach:
+  // d_k = sum_{i=0}^{k} C(n, i)
+  // But we use the simpler Euler/Knopp acceleration:
+  // eta(s) = sum_{k=0}^{n-1} (-1)^k / (k+1)^s  with acceleration
+  //
+  // Better: use the convergence acceleration with binomial weights
+  // eta(s) ~= -1/(d_n) * sum_{k=0}^{n-1} (-1)^k (d_k - d_n) / (k+1)^s
+  // where d_0 = 0, d_k = d_{k-1} + n! / (k! * (n-k)!)  ... partial sums of binomial
+
+  const d = new Float64Array(n + 1);
+  d[0] = 0;
+  // d_k = sum_{j=0}^{k} C(n, j)
+  // We compute C(n,j) iteratively
+  let binom = 1; // C(n, 0)
+  let partial = 0;
+  for (let j = 0; j <= n; j++) {
+    if (j > 0) binom = binom * (n - j + 1) / j;
+    partial += binom;
+    d[j] = partial;
+  }
+  return d;
+}
+
+function zetaEta(s) {
+  // Compute eta(s) using Borwein/Knopp acceleration, then convert to zeta
+  // eta(s) = (1 - 2^{1-s}) * zeta(s)
+  // zeta(s) = eta(s) / (1 - 2^{1-s})
+
+  if (!etaCoeffs) etaCoeffs = computeEtaCoeffs(NETA);
+  const d = etaCoeffs;
+  const dn = d[NETA];
+
+  let sum = [0, 0];
+  for (let k = 0; k < NETA; k++) {
+    const sign = (k % 2 === 0) ? 1 : -1;
+    const coeff = sign * (d[k] - dn);
+    // (k+1)^(-s) = exp(-s * log(k+1))
+    const lnk1 = Math.log(k + 1);
+    const term = cexp(cmul([-s[0], -s[1]], [lnk1, 0]));
+    sum = cadd(sum, [coeff * term[0], coeff * term[1]]);
+  }
+
+  const eta = [sum[0] / (-dn), sum[1] / (-dn)];
+
+  // Convert: zeta(s) = eta(s) / (1 - 2^(1-s))
+  const one_minus_s = [1 - s[0], -s[1]];
+  const pow2 = cpow([2, 0], one_minus_s); // 2^(1-s)
+  const denom = csub([1, 0], pow2);
+
+  // Check if denom is near zero (s near 1)
+  if (cabs(denom) < 1e-10) {
+    // Near s=1, zeta has a pole. Return large value
+    return [1e6, 0];
+  }
+
+  return cdiv(eta, denom);
+}
+
+function zeta(s) {
+  // Handle the pole at s=1
+  if (Math.abs(s[0] - 1) < 0.01 && Math.abs(s[1]) < 0.01) {
+    return [1e6, 0];
+  }
+
+  // For Re(s) > 0, use the eta function approach directly
+  if (s[0] > 0) {
+    return zetaEta(s);
+  }
+
+  // For Re(s) <= 0, use the functional equation:
+  // zeta(s) = 2^s * pi^(s-1) * sin(pi*s/2) * Gamma(1-s) * zeta(1-s)
+  const one_minus_s = [1 - s[0], -s[1]];
+  const z1ms = zetaEta(one_minus_s); // zeta(1-s), Re(1-s) > 0
+
+  const pow2s = cpow([2, 0], s); // 2^s
+  const sm1 = [s[0] - 1, s[1]];
+  const powPi = cpow([Math.PI, 0], sm1); // pi^(s-1)
+  const sinTerm = csin(cmul([Math.PI / 2, 0], s)); // sin(pi*s/2)
+  const gammaTerm = cgamma(one_minus_s); // Gamma(1-s)
+
+  return cmul(pow2s, cmul(powPi, cmul(sinTerm, cmul(gammaTerm, z1ms))));
+}
+
+// ============================================================
+// Domain colouring
+// ============================================================
+function hsl2rgb(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r, g, b;
+  if (h < 60)       { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+}
+
+function domainColor(z) {
+  const r = cabs(z);
+  const theta = carg(z);
+  const hue = (theta * 180 / Math.PI + 360) % 360;
+  const logr = Math.log2(r + 1e-15);
+  const frac = logr - Math.floor(logr);
+  const lightness = 0.15 + 0.7 * (1 - Math.pow(Math.abs(frac - 0.5) * 2, 0.3) * 0.15);
+  const brightness = 0.5 + 0.35 * (1 - 2 * Math.abs(0.5 - 1 / (1 + r * 0.3)));
+  return hsl2rgb(hue, 0.85, brightness * lightness / 0.85);
+}
+
+// ============================================================
+// Known non-trivial zeros (first 15, on the critical line Re=1/2)
+// ============================================================
+const KNOWN_ZEROS = [
+  14.134725142, 21.022039639, 25.010857580, 30.424876126,
+  32.935061588, 37.586178159, 40.918719012, 43.327073281,
+  48.005150881, 49.773832478, 52.970321478, 56.446247697,
+  59.347044003, 60.831778525, 65.112544048
+];
+
+function nearestZeroDist(re, im) {
+  let minDist = Infinity;
+  let bestT = 0;
+  for (const t of KNOWN_ZEROS) {
+    const d1 = Math.sqrt((re - 0.5) * (re - 0.5) + (im - t) * (im - t));
+    const d2 = Math.sqrt((re - 0.5) * (re - 0.5) + (im + t) * (im + t));
+    if (d1 < minDist) { minDist = d1; bestT = t; }
+    if (d2 < minDist) { minDist = d2; bestT = -t; }
+  }
+  return { dist: minDist, t: bestT };
+}
+
+// ============================================================
+// Rendering
+// ============================================================
+const canvas = document.getElementById('domainCanvas');
+const ctx = canvas.getContext('2d');
+let viewReMin = -5, viewReMax = 5, viewImMin = -30, viewImMax = 30;
+let resolution = 150;
+let rendering = false;
+let renderRequest = 0;
+
+const presets = {
+  overview: { reMin: -5, reMax: 5, imMin: -30, imMax: 30 },
+  strip:    { reMin: -0.5, reMax: 1.5, imMin: -35, imMax: 35 },
+  zeros:    { reMin: -1, reMax: 2, imMin: 10, imMax: 25 },
+  trivial:  { reMin: -12, reMax: 2, imMin: -3, imMax: 3 },
+  pole:     { reMin: -1, reMax: 3, imMin: -3, imMax: 3 },
+  gram:     { reMin: -0.2, reMax: 1.2, imMin: 28, imMax: 45 }
+};
+
+function renderDomain() {
+  const thisRequest = ++renderRequest;
+  const startTime = performance.now();
+  document.getElementById('renderStatus').textContent = 'Rendering...';
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const res = resolution;
+  const scaleX = (viewReMax - viewReMin) / res;
+  const scaleY = (viewImMax - viewImMin) / Math.round(res * H / W);
+  const resY = Math.round(res * H / W);
+
+  // Render in tiles for responsiveness
+  const imageData = ctx.createImageData(res, resY);
+  const data = imageData.data;
+
+  let row = 0;
+  const chunkSize = 5; // rows per frame
+
+  function renderChunk() {
+    if (thisRequest !== renderRequest) return; // cancelled
+
+    const endRow = Math.min(row + chunkSize, resY);
+    for (let j = row; j < endRow; j++) {
+      const im = viewImMax - j * (viewImMax - viewImMin) / resY;
+      for (let i = 0; i < res; i++) {
+        const re = viewReMin + i * (viewReMax - viewReMin) / res;
+        const s = [re, im];
+        const z = zeta(s);
+        const rgb = domainColor(z);
+        const idx = (j * res + i) * 4;
+        data[idx] = rgb[0];
+        data[idx + 1] = rgb[1];
+        data[idx + 2] = rgb[2];
+        data[idx + 3] = 255;
+      }
+    }
+    row = endRow;
+
+    if (row >= resY) {
+      // Done - scale to canvas
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = res;
+      tmpCanvas.height = resY;
+      tmpCanvas.getContext('2d').putImageData(imageData, 0, 0);
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(tmpCanvas, 0, 0, W, H);
+
+      // Draw overlays
+      drawOverlays(W, H);
+
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+      document.getElementById('renderStatus').textContent = `Rendered ${res}x${resY} in ${elapsed}s`;
+    } else {
+      requestAnimationFrame(renderChunk);
+    }
+  }
+
+  renderChunk();
+}
+
+function drawOverlays(W, H) {
+  const toCanvasX = (re) => (re - viewReMin) / (viewReMax - viewReMin) * W;
+  const toCanvasY = (im) => (1 - (im - viewImMin) / (viewImMax - viewImMin)) * H;
+
+  // Critical strip shading
+  const x0 = toCanvasX(0);
+  const x1 = toCanvasX(1);
+  if (x1 > 0 && x0 < W) {
+    ctx.fillStyle = 'rgba(108, 140, 255, 0.06)';
+    ctx.fillRect(Math.max(0, x0), 0, Math.min(W, x1) - Math.max(0, x0), H);
+  }
+
+  // Critical line Re(s) = 1/2
+  const xHalf = toCanvasX(0.5);
+  if (xHalf > 0 && xHalf < W) {
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = 'rgba(108, 140, 255, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(xHalf, 0);
+    ctx.lineTo(xHalf, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Real axis
+  const yZero = toCanvasY(0);
+  if (yZero > 0 && yZero < H) {
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, yZero);
+    ctx.lineTo(W, yZero);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Imaginary axis
+  const xZero = toCanvasX(0);
+  if (xZero > 0 && xZero < W) {
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(xZero, 0);
+    ctx.lineTo(xZero, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Known zeros
+  for (const t of KNOWN_ZEROS) {
+    // Both +t and -t
+    for (const sign of [1, -1]) {
+      const im = t * sign;
+      const cx = toCanvasX(0.5);
+      const cy = toCanvasY(im);
+      if (cx > -10 && cx < W + 10 && cy > -10 && cy < H + 10) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(108, 255, 200, 0.9)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Pole at s=1
+  const poleX = toCanvasX(1);
+  const poleY = toCanvasY(0);
+  if (poleX > -10 && poleX < W + 10 && poleY > -10 && poleY < H + 10) {
+    ctx.beginPath();
+    ctx.arc(poleX, poleY, 6, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255, 108, 140, 0.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillStyle = '#ff6c8c';
+    ctx.fillText('pole', poleX + 9, poleY + 4);
+  }
+
+  // Trivial zeros at s = -2, -4, -6, ...
+  for (let n = -2; n >= -12; n -= 2) {
+    const tx = toCanvasX(n);
+    const ty = toCanvasY(0);
+    if (tx > -10 && tx < W + 10 && ty > -10 && ty < H + 10) {
+      ctx.beginPath();
+      ctx.arc(tx, ty, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255, 200, 108, 0.8)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // Axis tick labels
+  ctx.font = '11px Consolas, monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+
+  // Re axis ticks
+  const reStep = niceStep(viewReMax - viewReMin, 8);
+  for (let r = Math.ceil(viewReMin / reStep) * reStep; r <= viewReMax; r += reStep) {
+    const x = toCanvasX(r);
+    if (x > 30 && x < W - 10 && yZero > 0 && yZero < H) {
+      ctx.fillText(r.toFixed(1), x - 10, yZero + 15);
+    }
+  }
+
+  // Im axis ticks
+  const imStep = niceStep(viewImMax - viewImMin, 10);
+  for (let im = Math.ceil(viewImMin / imStep) * imStep; im <= viewImMax; im += imStep) {
+    const y = toCanvasY(im);
+    if (y > 10 && y < H - 10 && xZero > 0 && xZero < W) {
+      ctx.fillText(im.toFixed(0) + 'i', xZero + 5, y + 4);
+    }
+  }
+}
+
+function niceStep(range, maxTicks) {
+  const rough = range / maxTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  let step;
+  if (norm < 1.5) step = 1;
+  else if (norm < 3.5) step = 2;
+  else if (norm < 7.5) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
+// ============================================================
+// Mouse interaction
+// ============================================================
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width;
+  const my = (e.clientY - rect.top) / rect.height;
+  const re = viewReMin + mx * (viewReMax - viewReMin);
+  const im = viewImMax - my * (viewImMax - viewImMin);
+
+  document.getElementById('infoPos').textContent =
+    `s = ${re.toFixed(4)} ${im >= 0 ? '+' : '-'} ${Math.abs(im).toFixed(4)}i`;
+
+  const z = zeta([re, im]);
+  const absZ = cabs(z);
+  const argZ = carg(z);
+
+  document.getElementById('infoZeta').textContent =
+    `${z[0].toFixed(4)} ${z[1] >= 0 ? '+' : '-'} ${Math.abs(z[1]).toFixed(4)}i`;
+  document.getElementById('infoAbs').textContent = absZ.toFixed(6);
+  document.getElementById('infoArg').textContent = `${(argZ * 180 / Math.PI).toFixed(2)}deg`;
+
+  const nearest = nearestZeroDist(re, im);
+  document.getElementById('infoZero').textContent =
+    `d = ${nearest.dist.toFixed(4)} (t = ${nearest.t.toFixed(3)})`;
+});
+
+// ============================================================
+// Controls
+// ============================================================
+function syncSliders() {
+  document.getElementById('reMinSlider').value = viewReMin;
+  document.getElementById('reMaxSlider').value = viewReMax;
+  document.getElementById('imMinSlider').value = viewImMin;
+  document.getElementById('imMaxSlider').value = viewImMax;
+  document.getElementById('resSlider').value = resolution;
+  document.getElementById('reMinLabel').textContent = viewReMin;
+  document.getElementById('reMaxLabel').textContent = viewReMax;
+  document.getElementById('imMinLabel').textContent = viewImMin;
+  document.getElementById('imMaxLabel').textContent = viewImMax;
+  document.getElementById('resLabel').textContent = resolution;
+}
+
+let renderTimeout = null;
+function scheduleRender() {
+  clearTimeout(renderTimeout);
+  renderTimeout = setTimeout(() => {
+    renderDomain();
+    renderCriticalLinePlot();
+  }, 200);
+}
+
+document.getElementById('resSlider').addEventListener('input', (e) => {
+  resolution = parseInt(e.target.value);
+  document.getElementById('resLabel').textContent = resolution;
+  scheduleRender();
+});
+
+for (const id of ['reMinSlider', 'reMaxSlider', 'imMinSlider', 'imMaxSlider']) {
+  document.getElementById(id).addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (id === 'reMinSlider') { viewReMin = val; document.getElementById('reMinLabel').textContent = val; }
+    if (id === 'reMaxSlider') { viewReMax = val; document.getElementById('reMaxLabel').textContent = val; }
+    if (id === 'imMinSlider') { viewImMin = val; document.getElementById('imMinLabel').textContent = val; }
+    if (id === 'imMaxSlider') { viewImMax = val; document.getElementById('imMaxLabel').textContent = val; }
+    scheduleRender();
+  });
+}
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const p = presets[btn.dataset.preset];
+    viewReMin = p.reMin; viewReMax = p.reMax;
+    viewImMin = p.imMin; viewImMax = p.imMax;
+    syncSliders();
+    scheduleRender();
+  });
+});
+
+// ============================================================
+// Colour legend
+// ============================================================
+function drawLegend() {
+  const lc = document.getElementById('legendCanvas');
+  const lctx = lc.getContext('2d');
+  const cx = 70, cy = 70, R = 60;
+  lctx.clearRect(0, 0, 140, 140);
+
+  for (let y = 0; y < 140; y++) {
+    for (let x = 0; x < 140; x++) {
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > R + 1) continue;
+      const angle = Math.atan2(-dy, dx); // standard math orientation
+      const hue = (angle * 180 / Math.PI + 360) % 360;
+      const r2 = dist / R;
+      const sat = 0.85;
+      const light = 0.15 + 0.55 * r2;
+      const rgb = hsl2rgb(hue, sat, light);
+      lctx.fillStyle = `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`;
+      lctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Labels
+  lctx.font = '10px Consolas, monospace';
+  lctx.fillStyle = '#fff';
+  lctx.textAlign = 'center';
+  lctx.fillText('0', cx + R + 10, cy + 4);
+  lctx.fillText('pi', cx, cy - R - 4);
+  lctx.fillText('-pi', cx, cy + R + 12);
+  lctx.fillText('+/-pi', cx - R - 14, cy + 4);
+}
+
+// ============================================================
+// Critical line plot |zeta(1/2 + it)|
+// ============================================================
+function renderCriticalLinePlot() {
+  const tMin = Math.max(viewImMin, -70);
+  const tMax = Math.min(viewImMax, 70);
+  const steps = 500;
+  const ts = [], vals = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const t = tMin + (tMax - tMin) * i / steps;
+    const z = zeta([0.5, t]);
+    ts.push(t);
+    vals.push(cabs(z));
+  }
+
+  const zeroTs = KNOWN_ZEROS.filter(t => t >= tMin && t <= tMax);
+  const zeroVals = zeroTs.map(() => 0);
+  // Also negative zeros
+  const negZeroTs = KNOWN_ZEROS.filter(t => -t >= tMin && -t <= tMax).map(t => -t);
+  const negZeroVals = negZeroTs.map(() => 0);
+
+  Plotly.newPlot('zetaPlot', [
+    {
+      x: ts, y: vals,
+      type: 'scatter', mode: 'lines',
+      line: { color: '#6c8cff', width: 2 },
+      name: '|zeta(1/2+it)|'
+    },
+    {
+      x: [...zeroTs, ...negZeroTs],
+      y: [...zeroVals, ...negZeroVals],
+      type: 'scatter', mode: 'markers',
+      marker: { color: '#6cffc8', size: 8, symbol: 'circle' },
+      name: 'Non-trivial zeros'
+    }
+  ], {
+    paper_bgcolor: '#1a1a24',
+    plot_bgcolor: '#12121a',
+    font: { color: '#e0e0e8', family: 'Segoe UI, sans-serif', size: 11 },
+    margin: { l: 50, r: 20, t: 10, b: 40 },
+    xaxis: {
+      title: 't',
+      gridcolor: '#2a2a3a',
+      zerolinecolor: '#3a3a4a'
+    },
+    yaxis: {
+      title: '|zeta(1/2+it)|',
+      gridcolor: '#2a2a3a',
+      zerolinecolor: '#3a3a4a',
+      range: [0, Math.min(Math.max(...vals), 10)]
+    },
+    showlegend: true,
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.3)' }
+  }, { responsive: true, displayModeBar: false });
+}
+
+// ============================================================
+// Populate zero list
+// ============================================================
+function populateZeroList() {
+  const el = document.getElementById('zeroList');
+  el.innerHTML = KNOWN_ZEROS.map((t, i) =>
+    `<div><span>#${i + 1}:</span> s = 1/2 + <span>${t.toFixed(9)}</span>i</div>`
+  ).join('');
+}
+
+// ============================================================
+// Init
+// ============================================================
+syncSliders();
+drawLegend();
+populateZeroList();
+renderDomain();
+renderCriticalLinePlot();
+</script>
+</body>
+</html>
